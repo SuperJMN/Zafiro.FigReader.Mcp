@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\FigmaMcp.Core\FigmaMcp.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+    <PackageReference Include="ModelContextProtocol" Version="1.4.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>Zafiro.Figma.Mcp</AssemblyName>
+    <RootNamespace>FigmaMcp.Server</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- Distribution as a .NET tool (install with `dotnet tool install -g Zafiro.Figma.Mcp` or run with `dnx Zafiro.Figma.Mcp`) -->
+  <PropertyGroup>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>figmamcp</ToolCommandName>
+    <PackageId>Zafiro.Figma.Mcp</PackageId>
+    <Title>Zafiro.Figma.Mcp</Title>
+    <Description>Offline MCP server for reading local Figma .fig files without the Figma API or a token. Lets an AI agent extract structure, layout, colors, typography, text and embedded images so it can reproduce a design. Parses the Kiwi-based .fig binary directly. Pure managed (no native dependencies). Not affiliated with Figma, Inc.</Description>
+    <Authors>SuperJMN</Authors>
+    <Company>José Manuel Nieto (@SuperJMN)</Company>
+    <Product>Zafiro.Figma.Mcp</Product>
+    <PackageTags>mcp;model-context-protocol;figma;fig;design;kiwi;ai;offline</PackageTags>
+    <PackageProjectUrl>https://github.com/SuperJMN/Zafiro.Figma.Mcp</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/SuperJMN/Zafiro.Figma.Mcp</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="" Visible="false" />
+    <None Include="..\..\THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="" Visible="false" />
+  </ItemGroup>
+
+</Project>
