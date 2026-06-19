@@ -1,9 +1,9 @@
 using System.ComponentModel;
 using System.Text.Json.Nodes;
-using FigmaMcp.Core.Extraction;
+using Zafiro.FigReader.Core.Extraction;
 using ModelContextProtocol.Server;
 
-namespace FigmaMcp.Server.Tools;
+namespace Zafiro.FigReader.Mcp.Tools;
 
 /// <summary>
 /// MCP tools for reading local Figma <c>.fig</c> files offline (no Figma API, no token).

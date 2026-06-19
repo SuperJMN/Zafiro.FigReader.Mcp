@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\FigmaMcp.Core\FigmaMcp.Core.csproj" />
+    <ProjectReference Include="..\..\src\Zafiro.FigReader.Core\Zafiro.FigReader.Core.csproj" />
   </ItemGroup>
 
 </Project>

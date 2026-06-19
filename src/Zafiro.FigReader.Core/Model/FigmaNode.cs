@@ -1,6 +1,6 @@
-using FigmaMcp.Core.Kiwi;
+using Zafiro.FigReader.Core.Kiwi;
 
-namespace FigmaMcp.Core.Model;
+namespace Zafiro.FigReader.Core.Model;
 
 /// <summary>
 /// A single Figma node, wrapping its raw <see cref="KiwiObject"/> (<c>NodeChange</c>) and exposing

@@ -1,4 +1,4 @@
-namespace FigmaMcp.Core.Kiwi;
+namespace Zafiro.FigReader.Core.Kiwi;
 
 /// <summary>
 /// A decoded Kiwi <c>message</c> or <c>struct</c>: a bag of named field values plus its type name.

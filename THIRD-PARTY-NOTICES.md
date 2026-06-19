@@ -1,13 +1,13 @@
 # Third-Party Notices
 
-FigmaMcp includes and depends on third-party software. Their licenses and required
+Zafiro.FigReader.Mcp includes and depends on third-party software. Their licenses and required
 copyright notices are reproduced below.
 
 ---
 
 ## Kiwi (evanw/kiwi)
 
-The Kiwi binary decoder in `src/FigmaMcp.Core/Kiwi/` (ByteBuffer, schema decoding and the
+The Kiwi binary decoder in `src/Zafiro.FigReader.Core/Kiwi/` (ByteBuffer, schema decoding and the
 generic message decoder) is a C# port derived from Evan Wallace's Kiwi reference
 implementation (https://github.com/evanw/kiwi).
 
@@ -79,6 +79,6 @@ BSD-3-Clause option applies here.
 
 ## Note on the `.fig` format
 
-FigmaMcp parses Figma `.fig` files via a clean-room, reverse-engineered understanding of the
+Zafiro.FigReader.Mcp parses Figma `.fig` files via a clean-room, reverse-engineered understanding of the
 Kiwi-based container format for interoperability. "Figma" is a trademark of Figma, Inc.;
 this project is not affiliated with, endorsed by, or sponsored by Figma, Inc.
