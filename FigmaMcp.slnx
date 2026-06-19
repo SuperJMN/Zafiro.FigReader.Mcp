@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FigmaMcp.Core/FigmaMcp.Core.csproj" />
+    <Project Path="src/FigmaMcp.Server/FigmaMcp.Server.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FigmaMcp.Core.Tests/FigmaMcp.Core.Tests.csproj" />
+  </Folder>
+</Solution>
