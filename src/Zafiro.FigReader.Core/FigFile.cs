@@ -1,8 +1,8 @@
 using System.IO.Compression;
 using System.Text;
-using FigmaMcp.Core.Kiwi;
+using Zafiro.FigReader.Core.Kiwi;
 
-namespace FigmaMcp.Core;
+namespace Zafiro.FigReader.Core;
 
 /// <summary>
 /// Reads a Figma <c>.fig</c> file. Modern files are a ZIP archive containing <c>canvas.fig</c>

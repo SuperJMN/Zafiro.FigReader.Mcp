@@ -1,8 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using FigmaMcp.Core.Kiwi;
+using Zafiro.FigReader.Core.Kiwi;
 
-namespace FigmaMcp.Core.Extraction;
+namespace Zafiro.FigReader.Core.Extraction;
 
 /// <summary>
 /// Converts decoded Kiwi values (<see cref="KiwiObject"/>, lists, primitives, byte arrays) into

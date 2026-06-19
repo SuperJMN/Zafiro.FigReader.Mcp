@@ -1,4 +1,4 @@
-# FigmaMcp
+# Zafiro.FigReader.Mcp
 
 An **offline** MCP server that reads local Figma `.fig` files so an AI agent can inspect and
 reproduce a design — structure, layout, colors, typography, text and embedded images — **without
@@ -8,7 +8,7 @@ the exported `.fig` binary directly instead of calling Figma's servers.
 ## Why
 
 The Figma REST API is free but requires a token and an internet round-trip, and Framelink-style
-tools stream large payloads. FigmaMcp works on a `.fig` you exported yourself
+tools stream large payloads. Zafiro.FigReader.Mcp works on a `.fig` you exported yourself
 (*Figma → File → Save local copy…*), fully offline, and returns compact, token-efficient JSON.
 
 ## How it works
@@ -23,7 +23,7 @@ chunk0 = Kiwi binary schema (raw DEFLATE) — self-describing
 chunk1.. = Kiwi message (raw DEFLATE or Zstandard) → root type "Message"
 ```
 
-The message holds a flat list of `nodeChanges` (Figma's CRDT model); FigmaMcp rebuilds the node tree
+The message holds a flat list of `nodeChanges` (Figma's CRDT model); Zafiro.FigReader.Mcp rebuilds the node tree
 from each node's `parentIndex` (parent GUID + fractional position). The Kiwi decoder is a clean-room
 port of `evanw/kiwi`; Zstandard is handled by `ZstdSharp.Port`. No native dependencies.
 
@@ -41,12 +41,12 @@ Published as a .NET tool on NuGet (requires the .NET 10 SDK/runtime):
 
 ```bash
 # Install globally...
-dotnet tool install -g Zafiro.Figma.Mcp
+dotnet tool install -g Zafiro.FigReader.Mcp
 # ...then run:
-figmamcp
+figreadermcp
 
 # ...or run without installing:
-dnx Zafiro.Figma.Mcp
+dnx Zafiro.FigReader.Mcp
 ```
 
 The server speaks MCP over **stdio** (logs go to stderr, so stdout stays clean for the protocol).
@@ -61,7 +61,7 @@ The server speaks MCP over **stdio** (logs go to stderr, so stdout stays clean f
     "figma": {
       "type": "stdio",
       "command": "dnx",
-      "args": ["Zafiro.Figma.Mcp", "--yes"]
+      "args": ["Zafiro.FigReader.Mcp", "--yes"]
     }
   }
 }
@@ -74,19 +74,19 @@ The server speaks MCP over **stdio** (logs go to stderr, so stdout stays clean f
   "mcpServers": {
     "figma": {
       "command": "dnx",
-      "args": ["Zafiro.Figma.Mcp", "--yes"]
+      "args": ["Zafiro.FigReader.Mcp", "--yes"]
     }
   }
 }
 ```
 
-If you installed the tool globally you can instead use `"command": "figmamcp"` with no args.
+If you installed the tool globally you can instead use `"command": "figreadermcp"` with no args.
 
 ## Build from source
 
 ```bash
 dotnet build -c Release
-dotnet src/FigmaMcp.Server/bin/Release/net10.0/Zafiro.Figma.Mcp.dll
+dotnet src/Zafiro.FigReader.Mcp/bin/Release/net10.0/Zafiro.FigReader.Mcp.dll
 ```
 
 (Avoid `dotnet run` for MCP: its first-run build output can corrupt the stdio protocol.)
@@ -128,9 +128,9 @@ recently loaded file when `path` is omitted.
 ## Layout
 
 ```
-src/FigmaMcp.Core      Kiwi decoder, .fig container reader, document model, extraction
-src/FigmaMcp.Server    MCP stdio server + tools
-tests/FigmaMcp.Core.Tests
+src/Zafiro.FigReader.Core      Kiwi decoder, .fig container reader, document model, extraction
+src/Zafiro.FigReader.Mcp    MCP stdio server + tools
+tests/Zafiro.FigReader.Core.Tests
 ```
 
 ## Limitations

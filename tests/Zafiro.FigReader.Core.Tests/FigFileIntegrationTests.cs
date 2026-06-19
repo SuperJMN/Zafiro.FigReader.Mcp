@@ -1,8 +1,8 @@
-using FigmaMcp.Core.Extraction;
-using FigmaMcp.Core.Model;
+using Zafiro.FigReader.Core.Extraction;
+using Zafiro.FigReader.Core.Model;
 using Xunit;
 
-namespace FigmaMcp.Core.Tests;
+namespace Zafiro.FigReader.Core.Tests;
 
 /// <summary>
 /// End-to-end tests against a real <c>.fig</c> file. They are opt-in: set the environment variable

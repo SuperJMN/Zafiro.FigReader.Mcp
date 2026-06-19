@@ -1,9 +1,9 @@
 using System.Buffers.Binary;
 using System.IO.Compression;
-using FigmaMcp.Core.Kiwi;
+using Zafiro.FigReader.Core.Kiwi;
 using ZstdSharp;
 
-namespace FigmaMcp.Core;
+namespace Zafiro.FigReader.Core;
 
 /// <summary>
 /// Result of decoding a <c>canvas.fig</c> stream: the embedded schema and the decoded root message.

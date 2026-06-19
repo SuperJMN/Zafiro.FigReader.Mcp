@@ -1,9 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using FigmaMcp.Core.Kiwi;
-using FigmaMcp.Core.Model;
+using Zafiro.FigReader.Core.Kiwi;
+using Zafiro.FigReader.Core.Model;
 
-namespace FigmaMcp.Core.Extraction;
+namespace Zafiro.FigReader.Core.Extraction;
 
 /// <summary>
 /// High-level facade over <see cref="FigFile"/> / <see cref="FigmaDocument"/> used by the MCP tools.

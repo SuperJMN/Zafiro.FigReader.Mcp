@@ -1,4 +1,4 @@
-namespace FigmaMcp.Core.Kiwi;
+namespace Zafiro.FigReader.Core.Kiwi;
 
 public enum KiwiKind
 {

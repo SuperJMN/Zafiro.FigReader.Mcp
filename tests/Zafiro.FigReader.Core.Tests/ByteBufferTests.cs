@@ -1,7 +1,7 @@
-using FigmaMcp.Core.Kiwi;
+using Zafiro.FigReader.Core.Kiwi;
 using Xunit;
 
-namespace FigmaMcp.Core.Tests;
+namespace Zafiro.FigReader.Core.Tests;
 
 public class ByteBufferTests
 {

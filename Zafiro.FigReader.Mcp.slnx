@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Zafiro.FigReader.Core/Zafiro.FigReader.Core.csproj" />
+    <Project Path="src/Zafiro.FigReader.Mcp/Zafiro.FigReader.Mcp.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Zafiro.FigReader.Core.Tests/Zafiro.FigReader.Core.Tests.csproj" />
+  </Folder>
+</Solution>

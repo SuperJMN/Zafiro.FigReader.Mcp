@@ -1,8 +1,8 @@
 using System.Text.Json.Nodes;
-using FigmaMcp.Core.Kiwi;
-using FigmaMcp.Core.Model;
+using Zafiro.FigReader.Core.Kiwi;
+using Zafiro.FigReader.Core.Model;
 
-namespace FigmaMcp.Core.Extraction;
+namespace Zafiro.FigReader.Core.Extraction;
 
 /// <summary>
 /// Produces compact, token-efficient views of Figma nodes for an AI agent: simplified node trees,

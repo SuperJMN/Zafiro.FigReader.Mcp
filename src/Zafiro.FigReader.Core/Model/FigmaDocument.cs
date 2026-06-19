@@ -1,6 +1,6 @@
-using FigmaMcp.Core.Kiwi;
+using Zafiro.FigReader.Core.Kiwi;
 
-namespace FigmaMcp.Core.Model;
+namespace Zafiro.FigReader.Core.Model;
 
 /// <summary>
 /// A navigable Figma document built from the flat <c>nodeChanges</c> list of a decoded

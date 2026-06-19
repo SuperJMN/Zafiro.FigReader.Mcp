@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace FigmaMcp.Core.Kiwi;
+namespace Zafiro.FigReader.Core.Kiwi;
 
 /// <summary>
 /// Sequential little-endian reader for the Kiwi binary format used by Figma `.fig` files.
