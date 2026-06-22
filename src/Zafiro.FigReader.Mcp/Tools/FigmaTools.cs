@@ -105,16 +105,17 @@ public static class FigmaTools
     }
 
     [McpServerTool(Name = "search_nodes")]
-    [Description("Find nodes by name (case-insensitive substring) and optionally by type. " +
-                 "Returns id, name, type and bounds.")]
+    [Description("Find nodes by name or instance/text override content (case-insensitive substring), " +
+                 "optionally by type and subtree. Returns id, name, type, bounds, page and path.")]
     public static string SearchNodes(
         FigmaService service,
-        [Description("Name substring to match. Empty matches all (combine with type).")] string query,
+        [Description("Name or text substring to match. Empty matches all (combine with type or nodeId).")] string query,
         [Description("Optional node type filter, e.g. FRAME, TEXT, INSTANCE, COMPONENT.")] string? type = null,
         [Description("Maximum results (default 50).")] int limit = 50,
+        [Description("Optional subtree root node id, e.g. a page id like '207:23353'.")] string? nodeId = null,
         [Description("Optional .fig path; defaults to the last loaded file.")] string? path = null)
     {
-        return Json(service.Search(service.Resolve(path), query, type, limit));
+        return Json(service.Search(service.Resolve(path), query, type, limit, nodeId));
     }
 
     private static string Json(JsonNode? node) => KiwiJson.Serialize(node);

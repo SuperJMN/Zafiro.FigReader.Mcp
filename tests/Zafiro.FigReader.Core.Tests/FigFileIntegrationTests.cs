@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Zafiro.FigReader.Core.Extraction;
 using Zafiro.FigReader.Core.Model;
 using Xunit;
@@ -55,5 +56,32 @@ public class FigFileIntegrationTests
 
         var styles = service.Styles(doc);
         Assert.NotNull(styles["colors"]);
+    }
+
+    [Fact]
+    public void Search_finds_text_overrides_and_reports_page_context()
+    {
+        if (SamplePath is not { } path)
+        {
+            return; // sample not configured; skip
+        }
+
+        var service = new FigmaService();
+        var doc = service.Load(path);
+
+        var results = service.Search(
+            doc,
+            query: "Confirm delete this run without exporting",
+            type: null,
+            limit: 10,
+            nodeId: "207:23353");
+
+        var match = results.OfType<JsonObject>()
+            .FirstOrDefault(node => node["id"]?.GetValue<string>() == "9709:365341");
+
+        Assert.NotNull(match);
+        Assert.Equal("04 High Fidelity Designs", match["pageName"]?.GetValue<string>());
+        Assert.Contains("04 High Fidelity Designs", match["path"]?.GetValue<string>());
+        Assert.Equal("Confirm delete this run without exporting", match["matchedText"]?.GetValue<string>());
     }
 }
