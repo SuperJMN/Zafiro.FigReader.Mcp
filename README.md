@@ -103,7 +103,7 @@ dotnet src/Zafiro.FigReader.Mcp/bin/Release/net10.0/Zafiro.FigReader.Mcp.dll
 | `get_styles(path?)` | Colors actually used (with counts) and distinct text styles. |
 | `list_images(path?)` | Embedded image/video blob entries. |
 | `export_image(entry, outputDirectory, path?)` | Extract a blob to disk. |
-| `search_nodes(query, type?, limit?, path?)` | Find nodes by name/type. |
+| `search_nodes(query, type?, limit?, nodeId?, path?)` | Find nodes by name, text, or instance overrides; optionally scoped to a subtree such as a page. |
 
 Node ids use the form `sessionID:localID`. Tools other than `load_file` default to the most
 recently loaded file when `path` is omitted.

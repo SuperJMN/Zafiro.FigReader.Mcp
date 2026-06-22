@@ -147,6 +147,7 @@ public sealed class FigmaService
         }
 
         var json = FigmaExtractor.Simplify(node, depth: 0, includeChildren: false);
+        AddContext(json, node);
         if (node.ParentId is not null)
         {
             json["parentId"] = node.ParentId;
@@ -270,21 +271,32 @@ public sealed class FigmaService
         return new JsonObject { ["entry"] = name, ["bytes"] = bytes.Length, ["path"] = outPath };
     }
 
-    public JsonArray Search(FigmaDocument doc, string query, string? type, int limit)
+    public JsonArray Search(FigmaDocument doc, string query, string? type, int limit, string? nodeId = null)
     {
         var array = new JsonArray();
-        foreach (var node in doc.AllNodes)
+        foreach (var node in ScopeNodes(doc, nodeId))
         {
             if (type is not null && !string.Equals(node.Type, type, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            if (string.IsNullOrEmpty(query) ||
-                (node.Name?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false))
+            var matchesName = string.IsNullOrEmpty(query) ||
+                              (node.Name?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false);
+            var matchedText = matchesName || string.IsNullOrEmpty(query)
+                ? null
+                : FindMatchingText(node.Raw, query);
+
+            if (matchesName || matchedText is not null)
             {
                 var json = new JsonObject { ["id"] = node.Id, ["name"] = node.Name, ["type"] = node.Type };
                 FigmaExtractor.AddBounds(json, node);
+                AddContext(json, node);
+                if (matchedText is not null)
+                {
+                    json["matchedText"] = matchedText;
+                }
+
                 array.Add(json);
                 if (array.Count >= limit)
                 {
@@ -294,6 +306,90 @@ public sealed class FigmaService
         }
 
         return array;
+    }
+
+    private static void AddContext(JsonObject json, FigmaNode node)
+    {
+        if (FindPage(node) is { } page)
+        {
+            json["pageId"] = page.Id;
+            json["pageName"] = page.Name;
+        }
+
+        json["path"] = BuildPath(node);
+    }
+
+    private static FigmaNode? FindPage(FigmaNode node)
+    {
+        for (var current = node; current is not null; current = current.Parent)
+        {
+            if (current.Type == "CANVAS")
+            {
+                return current;
+            }
+        }
+
+        return null;
+    }
+
+    private static string BuildPath(FigmaNode node)
+    {
+        var names = new Stack<string>();
+        for (var current = node; current is not null; current = current.Parent)
+        {
+            if (!string.IsNullOrWhiteSpace(current.Name))
+            {
+                names.Push(current.Name!);
+            }
+        }
+
+        return string.Join(" > ", names);
+    }
+
+    private static string? FindMatchingText(KiwiObject root, string query)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var text in EnumerateTextContent(root))
+        {
+            if (seen.Add(text) && text.Contains(query, StringComparison.OrdinalIgnoreCase))
+            {
+                return text;
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<string> EnumerateTextContent(object? value)
+    {
+        switch (value)
+        {
+            case KiwiObject obj:
+                foreach (var (key, fieldValue) in obj.Fields)
+                {
+                    if (key == "characters" && fieldValue is string { Length: > 0 } characters)
+                    {
+                        yield return characters;
+                    }
+
+                    foreach (var text in EnumerateTextContent(fieldValue))
+                    {
+                        yield return text;
+                    }
+                }
+
+                break;
+            case IReadOnlyList<object?> list:
+                foreach (var item in list)
+                {
+                    foreach (var text in EnumerateTextContent(item))
+                    {
+                        yield return text;
+                    }
+                }
+
+                break;
+        }
     }
 
     private static IEnumerable<FigmaNode> ScopeNodes(FigmaDocument doc, string? nodeId)
