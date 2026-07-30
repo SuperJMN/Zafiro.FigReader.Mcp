@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Zafiro.FigReader.Core.Kiwi;
 using Zafiro.FigReader.Core.Model;
+using Zafiro.FigReader.Core.Resolution;
 
 namespace Zafiro.FigReader.Core.Extraction;
 
@@ -12,7 +13,7 @@ namespace Zafiro.FigReader.Core.Extraction;
 public static class FigmaExtractor
 {
     /// <summary>Builds a simplified node, optionally recursing into children down to <paramref name="depth"/>.</summary>
-    public static JsonObject Simplify(FigmaNode node, int depth, bool includeChildren = true)
+    public static JsonObject Simplify(FigmaNode node, int depth, bool includeChildren = true, InstanceResolver? resolver = null)
     {
         var json = new JsonObject
         {
@@ -69,7 +70,110 @@ public static class FigmaExtractor
             json["text"] = text;
         }
 
-        if (includeChildren && node.Children.Count > 0)
+        if (includeChildren)
+        {
+            // Instances have no direct children; expand the symbol they render (with overrides applied).
+            if (resolver is not null && node.Type == "INSTANCE")
+            {
+                if (depth <= 0)
+                {
+                    // Report the child count cheaply, without expanding the whole subtree.
+                    var count = resolver.ResolvedChildCount(node);
+                    if (count > 0)
+                    {
+                        json["childCount"] = count;
+                    }
+
+                    return json;
+                }
+
+                var resolvedRoot = resolver.Resolve(node, maxDepth: depth);
+                if (resolvedRoot is not null && resolvedRoot.Children.Count > 0)
+                {
+                    var resolvedChildren = new JsonArray();
+                    foreach (var child in resolvedRoot.Children)
+                    {
+                        resolvedChildren.Add(SimplifyResolved(child, depth - 1));
+                    }
+
+                    json["children"] = resolvedChildren;
+                    return json;
+                }
+            }
+
+            if (node.Children.Count > 0)
+            {
+                if (depth <= 0)
+                {
+                    json["childCount"] = node.Children.Count;
+                }
+                else
+                {
+                    var children = new JsonArray();
+                    foreach (var child in node.Children)
+                    {
+                        children.Add(Simplify(child, depth - 1, includeChildren, resolver));
+                    }
+
+                    json["children"] = children;
+                }
+            }
+        }
+
+        return json;
+    }
+
+    /// <summary>
+    /// Renders a node of an instance's <em>resolved</em> subtree: the effective text/visibility and, for
+    /// swapped instances, the component that was swapped in. Positional bounds are in the symbol's local
+    /// space. <paramref name="depth"/> bounds recursion just like <see cref="Simplify"/>.
+    /// </summary>
+    public static JsonObject SimplifyResolved(ResolvedNode node, int depth)
+    {
+        var json = new JsonObject
+        {
+            ["id"] = node.Source.Id,
+            ["name"] = node.Name,
+            ["type"] = node.Type,
+        };
+
+        AddBounds(json, node.Source);
+
+        if (!node.Visible)
+        {
+            json["visible"] = false;
+        }
+
+        var fills = SimplifyPaints(node.Source.Raw.GetList("fillPaints"));
+        if (fills is not null)
+        {
+            json["fills"] = fills;
+        }
+
+        var layout = SimplifyLayout(node.Source);
+        if (layout is not null)
+        {
+            json["layout"] = layout;
+        }
+
+        if (node.Type == "TEXT")
+        {
+            var text = SimplifyText(node.Source) ?? new JsonObject();
+            if (node.Text is not null)
+            {
+                text["characters"] = node.Text;
+            }
+
+            json["text"] = text;
+        }
+
+        if (node.SwapComponentName is not null)
+        {
+            json["swappedTo"] = node.SwapComponentName;
+            json["swappedToId"] = node.SwapComponentId;
+        }
+
+        if (node.Children.Count > 0)
         {
             if (depth <= 0)
             {
@@ -80,7 +184,7 @@ public static class FigmaExtractor
                 var children = new JsonArray();
                 foreach (var child in node.Children)
                 {
-                    children.Add(Simplify(child, depth - 1, includeChildren));
+                    children.Add(SimplifyResolved(child, depth - 1));
                 }
 
                 json["children"] = children;

@@ -71,8 +71,10 @@ public static class KiwiJson
 
             case bool b: return JsonValue.Create(b);
             case string s: return JsonValue.Create(s);
-            case float f: return JsonValue.Create(f);
-            case double d: return JsonValue.Create(d);
+            // System.Text.Json rejects non-finite numbers; emit them as strings so raw dumps
+            // (which occasionally contain Infinity/NaN transforms) don't fail to serialize.
+            case float f: return float.IsFinite(f) ? JsonValue.Create(f) : JsonValue.Create(f.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            case double d: return double.IsFinite(d) ? JsonValue.Create(d) : JsonValue.Create(d.ToString(System.Globalization.CultureInfo.InvariantCulture));
             case int i: return JsonValue.Create(i);
             case uint u: return JsonValue.Create(u);
             case long l: return JsonValue.Create(l);

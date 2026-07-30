@@ -1,7 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Zafiro.FigReader.Core.Geometry;
 using Zafiro.FigReader.Core.Kiwi;
 using Zafiro.FigReader.Core.Model;
+using Zafiro.FigReader.Core.Resolution;
 
 namespace Zafiro.FigReader.Core.Extraction;
 
@@ -115,11 +117,13 @@ public sealed class FigmaService
 
     public JsonNode NodeTree(FigmaDocument doc, string? nodeId, int depth)
     {
+        var resolver = new InstanceResolver(doc);
+
         if (!string.IsNullOrWhiteSpace(nodeId))
         {
             var node = doc.FindById(nodeId!)
                 ?? throw new KeyNotFoundException($"Node '{nodeId}' not found.");
-            return FigmaExtractor.Simplify(node, depth);
+            return FigmaExtractor.Simplify(node, depth, includeChildren: true, resolver);
         }
 
         var roots = doc.Pages.Count > 0
@@ -129,7 +133,7 @@ public sealed class FigmaService
         var array = new JsonArray();
         foreach (var root in roots)
         {
-            array.Add(FigmaExtractor.Simplify(root, depth));
+            array.Add(FigmaExtractor.Simplify(root, depth, includeChildren: true, resolver));
         }
 
         return array;
@@ -153,7 +157,19 @@ public sealed class FigmaService
             json["parentId"] = node.ParentId;
         }
 
-        if (node.Children.Count > 0)
+        // Instances render a symbol, not direct children: expose the resolved child list so callers can
+        // read the effective labels, icons (swaps) and visibility without a separate get_node_tree call.
+        if (node.Type == "INSTANCE" && new InstanceResolver(doc).Resolve(node, maxDepth: 2) is { } resolved && resolved.Children.Count > 0)
+        {
+            var children = new JsonArray();
+            foreach (var child in resolved.Children)
+            {
+                children.Add(ResolvedSummary(child));
+            }
+
+            json["resolvedChildren"] = children;
+        }
+        else if (node.Children.Count > 0)
         {
             var children = new JsonArray();
             foreach (var child in node.Children)
@@ -165,6 +181,69 @@ public sealed class FigmaService
         }
 
         return json;
+    }
+
+    private static JsonObject ResolvedSummary(ResolvedNode node)
+    {
+        var json = new JsonObject { ["id"] = node.Source.Id, ["name"] = node.Name, ["type"] = node.Type };
+        if (!node.Visible)
+        {
+            json["visible"] = false;
+        }
+
+        if (!string.IsNullOrEmpty(node.Text))
+        {
+            json["text"] = node.Text;
+        }
+
+        if (node.SwapComponentName is not null)
+        {
+            json["swappedTo"] = node.SwapComponentName;
+        }
+
+        if (node.Children.Count > 0)
+        {
+            json["childCount"] = node.Children.Count;
+        }
+
+        return json;
+    }
+
+    /// <summary>
+    /// Decodes a node's vector geometry into SVG path(s). Returns each path's SVG data (with the
+    /// <c>F0</c>/<c>F1</c> fill-rule prefix Avalonia understands) and its local bounds.
+    /// </summary>
+    public JsonObject Vector(FigmaDocument doc, string nodeId, string geometryField)
+    {
+        var node = doc.FindById(nodeId)
+            ?? throw new KeyNotFoundException($"Node '{nodeId}' not found.");
+
+        var paths = VectorPathDecoder.Decode(doc.File, node, geometryField);
+        var array = new JsonArray();
+        foreach (var path in paths)
+        {
+            array.Add(new JsonObject
+            {
+                ["fillRule"] = path.FillRule,
+                ["bounds"] = new JsonObject
+                {
+                    ["x"] = Math.Round(path.MinX, 3),
+                    ["y"] = Math.Round(path.MinY, 3),
+                    ["width"] = Math.Round(path.MaxX - path.MinX, 3),
+                    ["height"] = Math.Round(path.MaxY - path.MinY, 3),
+                },
+                ["path"] = path.Svg,
+            });
+        }
+
+        return new JsonObject
+        {
+            ["id"] = node.Id,
+            ["name"] = node.Name,
+            ["type"] = node.Type,
+            ["geometry"] = geometryField,
+            ["paths"] = array,
+        };
     }
 
     public JsonArray Text(FigmaDocument doc, string? nodeId)

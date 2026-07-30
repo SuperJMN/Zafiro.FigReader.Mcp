@@ -14,6 +14,8 @@ public sealed class FigFile
 {
     private static readonly byte[] FigKiwiMagic = "fig-kiwi"u8.ToArray();
 
+    private byte[][]? _geometryBlobs;
+
     private FigFile(string path, CanvasFile canvas, string? metaJson, IReadOnlyList<string> blobEntries)
     {
         Path = path;
@@ -97,6 +99,44 @@ public sealed class FigFile
         using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
         var entry = archive.GetEntry(entryName);
         return entry is null ? null : ReadEntry(entry);
+    }
+
+    /// <summary>
+    /// Returns the bytes of the geometry blob at <paramref name="index"/> (from the message's
+    /// <c>blobs</c> table, referenced by e.g. <c>fillGeometry[].commandsBlob</c>), or an empty
+    /// array when the index is out of range.
+    /// </summary>
+    public byte[] GetGeometryBlob(int index)
+    {
+        _geometryBlobs ??= BuildGeometryBlobs();
+        return index >= 0 && index < _geometryBlobs.Length ? _geometryBlobs[index] : Array.Empty<byte>();
+    }
+
+    /// <summary>Number of geometry blobs in the message's <c>blobs</c> table.</summary>
+    public int GeometryBlobCount
+    {
+        get
+        {
+            _geometryBlobs ??= BuildGeometryBlobs();
+            return _geometryBlobs.Length;
+        }
+    }
+
+    private byte[][] BuildGeometryBlobs()
+    {
+        var list = Message.GetList("blobs");
+        if (list is null)
+        {
+            return Array.Empty<byte[]>();
+        }
+
+        var result = new byte[list.Count][];
+        for (var i = 0; i < list.Count; i++)
+        {
+            result[i] = (list[i] as KiwiObject)?.Get("bytes") as byte[] ?? Array.Empty<byte>();
+        }
+
+        return result;
     }
 
     private static bool IsZip(Stream stream)

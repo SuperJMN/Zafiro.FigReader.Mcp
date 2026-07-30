@@ -97,16 +97,25 @@ dotnet src/Zafiro.FigReader.Mcp/bin/Release/net10.0/Zafiro.FigReader.Mcp.dll
 | --- | --- |
 | `load_file(path)` | Decode a `.fig` and return a summary (file name, pages, node-type histogram, blob count). Call first; result is cached. |
 | `get_metadata(path?)` | `meta.json` + high-level counts. |
-| `get_node_tree(nodeId?, depth?, path?)` | Compact hierarchy (id, name, type, bounds, fills, strokes, auto-layout, text). |
-| `get_node(nodeId, raw?, path?)` | Full detail for one node (set `raw=true` for the unfiltered Kiwi object). |
+| `get_node_tree(nodeId?, depth?, path?)` | Compact hierarchy (id, name, type, bounds, fills, strokes, auto-layout, text). INSTANCE nodes are expanded to the symbol content they render, with overrides applied (effective text, per-node visibility, icon instance-swaps as `swappedTo`). |
+| `get_node(nodeId, raw?, path?)` | Full detail for one node. For an INSTANCE, `resolvedChildren` lists the effective labels, icons (`swappedTo`) and visibility. Set `raw=true` for the unfiltered Kiwi object. |
 | `get_text(nodeId?, path?)` | All text content + typography under a subtree. |
 | `get_styles(path?)` | Colors actually used (with counts) and distinct text styles. |
+| `get_vector(nodeId, geometry?, path?)` | Decode a node's vector geometry into SVG path(s) (with an `F0`/`F1` fill-rule prefix, ready for an SVG `d`/Avalonia `StreamGeometry`). Pass `geometry="strokeGeometry"` for the stroke outline. |
 | `list_images(path?)` | Embedded image/video blob entries. |
 | `export_image(entry, outputDirectory, path?)` | Extract a blob to disk. |
 | `search_nodes(query, type?, limit?, nodeId?, path?)` | Find nodes by name, text, or instance overrides; optionally scoped to a subtree such as a page. |
 
 Node ids use the form `sessionID:localID`. Tools other than `load_file` default to the most
 recently loaded file when `path` is omitted.
+
+## Instances
+
+Figma stores an INSTANCE as a reference to a SYMBOL plus a set of overrides, so instances carry no
+child nodes of their own. `get_node_tree`/`get_node` resolve that for you: they walk the referenced
+symbol and apply `symbolOverrides` (text, visibility, …) and `componentPropAssignments` (text
+component properties and instance-swaps — e.g. an icon). Nested instances are resolved recursively,
+so an icon inside a tab inside a tab-menu is surfaced as the actual component it renders.
 
 ## Example
 
@@ -137,7 +146,8 @@ tests/Zafiro.FigReader.Core.Tests
 
 - The Kiwi schema is reverse-engineered; if Figma changes the format, extraction may need updates
   (the embedded schema keeps basic decoding working across versions).
-- Vector path geometry is referenced by blob index and not decoded into SVG (yet).
+- Instance resolution covers text/visibility overrides and text/instance-swap component properties;
+  exotic property kinds (variables, exposed nested props) are surfaced only partially.
 - Large files take a few seconds to decode on first load (then cached in memory).
 
 ## License

@@ -39,7 +39,9 @@ public static class FigmaTools
     [McpServerTool(Name = "get_node_tree")]
     [Description("Return a compact, token-efficient hierarchy of nodes (id, name, type, x/y/width/height, " +
                  "fills, strokes, auto-layout and text). Omit nodeId to start from the document pages. " +
-                 "Use 'depth' to control recursion; deeper subtrees report only a childCount.")]
+                 "Use 'depth' to control recursion; deeper subtrees report only a childCount. INSTANCE " +
+                 "nodes are expanded to the symbol content they render, with overrides applied: effective " +
+                 "text, per-node visibility and icon instance-swaps ('swappedTo').")]
     public static string GetNodeTree(
         FigmaService service,
         [Description("Optional node id ('sessionID:localID') to use as the subtree root.")] string? nodeId = null,
@@ -51,8 +53,9 @@ public static class FigmaTools
 
     [McpServerTool(Name = "get_node")]
     [Description("Return detailed properties for a single node: bounds, opacity, corner radius, fills, " +
-                 "strokes, auto-layout, text style, parent id and direct children. Set raw=true for the " +
-                 "full undecorated Kiwi object (verbose).")]
+                 "strokes, auto-layout, text style, parent id and children. For an INSTANCE, the direct " +
+                 "children are the resolved symbol content ('resolvedChildren'): effective text, icon " +
+                 "swaps ('swappedTo') and visibility. Set raw=true for the full undecorated Kiwi object.")]
     public static string GetNode(
         FigmaService service,
         [Description("Node id in 'sessionID:localID' form (from get_node_tree or search_nodes).")] string nodeId,
@@ -60,6 +63,20 @@ public static class FigmaTools
         [Description("Optional .fig path; defaults to the last loaded file.")] string? path = null)
     {
         return Json(service.NodeDetail(service.Resolve(path), nodeId, raw));
+    }
+
+    [McpServerTool(Name = "get_vector")]
+    [Description("Decode a node's vector geometry into SVG path(s). Returns each path's 'path' data " +
+                 "(prefixed with the F0/F1 fill rule, ready for Avalonia StreamGeometry or an SVG 'd' " +
+                 "attribute after stripping the prefix) and its local bounds. Use it to faithfully " +
+                 "reproduce icons and shapes. Pass geometry='strokeGeometry' for the stroke outline.")]
+    public static string GetVector(
+        FigmaService service,
+        [Description("Node id in 'sessionID:localID' form. Any node with fillGeometry/strokeGeometry works.")] string nodeId,
+        [Description("Which geometry to decode: 'fillGeometry' (default) or 'strokeGeometry'.")] string geometry = "fillGeometry",
+        [Description("Optional .fig path; defaults to the last loaded file.")] string? path = null)
+    {
+        return Json(service.Vector(service.Resolve(path), nodeId, geometry));
     }
 
     [McpServerTool(Name = "get_text")]
