@@ -31,9 +31,12 @@ port of `evanw/kiwi`; Zstandard is handled by `ZstdSharp.Port`. No native depend
 
 ```bash
 dotnet build -c Release
-dotnet test                                   # unit tests (no sample needed)
-FIGMA_SAMPLE_FIG=/path/to/file.fig dotnet test # also runs the integration tests
+dotnet test # unit tests and synthetic file integration tests
 ```
+
+Integration tests generate small fig-kiwi archives in temporary files. They cover
+document navigation, search, instance overrides and vector decoding without an
+external design export or environment variables.
 
 ## Install
 

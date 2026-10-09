@@ -129,7 +129,7 @@ public static class FigmaTools
         [Description("Name or text substring to match. Empty matches all (combine with type or nodeId).")] string query,
         [Description("Optional node type filter, e.g. FRAME, TEXT, INSTANCE, COMPONENT.")] string? type = null,
         [Description("Maximum results (default 50).")] int limit = 50,
-        [Description("Optional subtree root node id, e.g. a page id like '1:2'.")] string? nodeId = null,
+        [Description("Optional subtree root node id returned by get_node_tree.")] string? nodeId = null,
         [Description("Optional .fig path; defaults to the last loaded file.")] string? path = null)
     {
         return Json(service.Search(service.Resolve(path), query, type, limit, nodeId));
