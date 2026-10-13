@@ -38,24 +38,35 @@ internal sealed class SyntheticFigFile : IDisposable
         ["Message"] = [("nodeChanges", "Node[]"), ("blobs", "Blob[]")]
     };
 
-    public SyntheticFigFile()
+    /// <summary>The default fixture: nested instances with overrides, swaps and an embedded vector.</summary>
+    public SyntheticFigFile() => Write(DefaultNodes(), [BuildVectorCommands()]);
+
+    /// <summary>A fixture made of the given nodes (a DOCUMENT and a page are not added implicitly).</summary>
+    public SyntheticFigFile(params KiwiObject[] nodes) => Write(nodes, []);
+
+    /// <summary>Replaces the file at <see cref="Path"/> with a fixture made of the given nodes.</summary>
+    public void Overwrite(params KiwiObject[] nodes) => Write(nodes, []);
+
+    public void Dispose() => File.Delete(Path);
+
+    /// <summary>The DOCUMENT (1:1) and page (<see cref="PageId"/>) every fixture starts from.</summary>
+    public static KiwiObject[] Roots() => [Node(1, "DOCUMENT", "Synthetic document"), Node(2, "CANVAS", "Fixture page", 1)];
+
+    private void Write(KiwiObject[] nodes, byte[][] blobs)
     {
         using var file = File.Create(Path);
         using var archive = new ZipArchive(file, ZipArchiveMode.Create);
         using (var canvas = archive.CreateEntry("canvas.fig").Open())
         {
-            canvas.Write(BuildCanvas());
+            canvas.Write(BuildCanvas(nodes, blobs));
         }
 
         using var metadata = new StreamWriter(archive.CreateEntry("meta.json").Open());
         metadata.Write("""{"file_name":"Synthetic fixture"}""");
     }
 
-    public void Dispose() => File.Delete(Path);
-
-    private static byte[] BuildCanvas()
-    {
-        var nodes = new[]
+    private static KiwiObject[] DefaultNodes() =>
+        new[]
         {
             Node(1, "DOCUMENT", "Synthetic document"),
             Node(2, "CANVAS", "Fixture page", 1),
@@ -83,8 +94,11 @@ internal sealed class SyntheticFigFile : IDisposable
                     }))
                 }))))
         };
+
+    private static byte[] BuildCanvas(KiwiObject[] nodes, byte[][] blobs)
+    {
         var message = Obj("Message", ("nodeChanges", nodes),
-            ("blobs", new[] { Obj("Blob", ("bytes", BuildVectorCommands())) }));
+            ("blobs", blobs.Select(bytes => Obj("Blob", ("bytes", bytes))).ToArray()));
 
         using var canvas = new MemoryStream();
         using var writer = new BinaryWriter(canvas);
@@ -95,7 +109,7 @@ internal sealed class SyntheticFigFile : IDisposable
         return canvas.ToArray();
     }
 
-    private static KiwiObject Node(int id, string type, string name, int? parent = null,
+    public static KiwiObject Node(int id, string type, string name, int? parent = null,
         params (string Name, object Value)[] extra)
     {
         var fields = new List<(string Name, object Value)>
@@ -111,13 +125,13 @@ internal sealed class SyntheticFigFile : IDisposable
         return Obj("Node", fields.ToArray());
     }
 
-    private static KiwiObject Id(int localId) => Obj("Guid", ("sessionID", 1), ("localID", localId));
+    public static KiwiObject Id(int localId) => Obj("Guid", ("sessionID", 1), ("localID", localId));
 
-    private static KiwiObject Override(int[] path, params (string Name, object Value)[] values) =>
+    public static KiwiObject Override(int[] path, params (string Name, object Value)[] values) =>
         Obj("Override", new[] { ("guidPath", (object)Obj("GuidPath", ("guids", path.Select(Id).ToArray()))) }
             .Concat(values).ToArray());
 
-    private static KiwiObject Obj(string type, params (string Name, object Value)[] fields) =>
+    public static KiwiObject Obj(string type, params (string Name, object Value)[] fields) =>
         new(type, fields.ToDictionary(field => field.Name, field => (object?)field.Value));
 
     private static byte[] Encode(Action<BinaryWriter> write)

@@ -10,27 +10,30 @@ namespace Zafiro.FigReader.Core.Extraction;
 /// <summary>
 /// High-level facade over <see cref="FigFile"/> / <see cref="FigmaDocument"/> used by the MCP tools.
 /// Decoded documents are cached by absolute path so the (potentially multi-second) decode happens once.
+/// Each cache entry remembers the file's size and last write time, so a file overwritten at the same
+/// path is decoded again instead of serving the stale document.
 /// The most recently loaded document becomes the implicit target for tools that omit a path.
 /// </summary>
 public sealed class FigmaService
 {
-    private readonly Dictionary<string, FigmaDocument> _cache = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, CachedDocument> _cache = new(StringComparer.Ordinal);
     private readonly object _gate = new();
     private string? _currentPath;
 
-    public FigmaDocument Load(string path)
+    public FigmaDocument Load(string path, bool forceReload = false)
     {
         var full = Path.GetFullPath(ExpandHome(path));
         lock (_gate)
         {
-            if (!_cache.TryGetValue(full, out var doc))
+            var stamp = FileStamp.Of(full);
+            if (forceReload || !_cache.TryGetValue(full, out var cached) || cached.Stamp != stamp)
             {
-                doc = FigmaDocument.Build(FigFile.Load(full));
-                _cache[full] = doc;
+                cached = new CachedDocument(FigmaDocument.Build(FigFile.Load(full)), stamp);
+                _cache[full] = cached;
             }
 
             _currentPath = full;
-            return doc;
+            return cached.Document;
         }
     }
 
@@ -41,15 +44,16 @@ public sealed class FigmaService
             return Load(path);
         }
 
+        string? current;
         lock (_gate)
         {
-            if (_currentPath is not null && _cache.TryGetValue(_currentPath, out var doc))
-            {
-                return doc;
-            }
+            current = _currentPath;
         }
 
-        throw new InvalidOperationException("No Figma file loaded. Call 'load_file' first or pass a 'path'.");
+        // Revalidate the implicit target too, so a re-exported file is picked up without a new load_file.
+        return current is not null
+            ? Load(current)
+            : throw new InvalidOperationException("No Figma file loaded. Call 'load_file' first or pass a 'path'.");
     }
 
     public JsonObject Summary(FigmaDocument doc)
@@ -528,4 +532,15 @@ public sealed class FigmaService
         path.StartsWith("~/", StringComparison.Ordinal)
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), path[2..])
             : path;
+
+    private sealed record CachedDocument(FigmaDocument Document, FileStamp Stamp);
+
+    private readonly record struct FileStamp(long Length, DateTime LastWriteTimeUtc)
+    {
+        public static FileStamp Of(string path)
+        {
+            var info = new FileInfo(path);
+            return info.Exists ? new FileStamp(info.Length, info.LastWriteTimeUtc) : default;
+        }
+    }
 }

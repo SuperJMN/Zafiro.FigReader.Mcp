@@ -17,12 +17,14 @@ public static class FigmaTools
     [McpServerTool(Name = "load_file")]
     [Description("Load and decode a local Figma .fig file and return a summary: file name, page list, " +
                  "total node count, node-type histogram and embedded blob count. Call this first. " +
-                 "Decoding is cached, so subsequent tools are fast.")]
+                 "Decoding is cached, so subsequent tools are fast; the cache is refreshed automatically " +
+                 "when the file at that path changes (size or modification time).")]
     public static string LoadFile(
         FigmaService service,
-        [Description("Absolute path to the .fig file (e.g. /home/user/design.fig). '~' is expanded.")] string path)
+        [Description("Absolute path to the .fig file (e.g. /home/user/design.fig). '~' is expanded.")] string path,
+        [Description("Decode the file again even if it looks unchanged (default false).")] bool forceReload = false)
     {
-        var doc = service.Load(path);
+        var doc = service.Load(path, forceReload);
         return Json(service.Summary(doc));
     }
 

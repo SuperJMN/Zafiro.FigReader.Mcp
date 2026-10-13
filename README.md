@@ -98,7 +98,7 @@ dotnet src/Zafiro.FigReader.Mcp/bin/Release/net10.0/Zafiro.FigReader.Mcp.dll
 
 | Tool | Purpose |
 | --- | --- |
-| `load_file(path)` | Decode a `.fig` and return a summary (file name, pages, node-type histogram, blob count). Call first; result is cached. |
+| `load_file(path, forceReload?)` | Decode a `.fig` and return a summary (file name, pages, node-type histogram, blob count). Call first; result is cached and decoded again when the file changes on disk (`forceReload=true` forces it). |
 | `get_metadata(path?)` | `meta.json` + high-level counts. |
 | `get_node_tree(nodeId?, depth?, path?)` | Compact hierarchy (id, name, type, bounds, fills, strokes, auto-layout, text). INSTANCE nodes are expanded to the symbol content they render, with overrides applied (effective text, per-node visibility, icon instance-swaps as `swappedTo`). |
 | `get_node(nodeId, raw?, path?)` | Full detail for one node. For an INSTANCE, `resolvedChildren` lists the effective labels, icons (`swappedTo`) and visibility. Set `raw=true` for the unfiltered Kiwi object. |
