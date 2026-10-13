@@ -1,4 +1,5 @@
 using Zafiro.FigReader.Core.Kiwi;
+using Zafiro.FigReader.Core.Resolution;
 
 namespace Zafiro.FigReader.Core.Model;
 
@@ -10,6 +11,7 @@ namespace Zafiro.FigReader.Core.Model;
 public sealed class FigmaDocument
 {
     private readonly Dictionary<string, FigmaNode> _byId;
+    private readonly Lazy<VariableResolver> _variables;
 
     private FigmaDocument(FigFile file, Dictionary<string, FigmaNode> byId, FigmaNode? root, IReadOnlyList<FigmaNode> pages)
     {
@@ -17,6 +19,7 @@ public sealed class FigmaDocument
         _byId = byId;
         Root = root;
         Pages = pages;
+        _variables = new Lazy<VariableResolver>(() => new VariableResolver(this));
     }
 
     public FigFile File { get; }
@@ -32,6 +35,9 @@ public sealed class FigmaDocument
     public int NodeCount => _byId.Count;
 
     public FigmaNode? FindById(string id) => _byId.GetValueOrDefault(id);
+
+    /// <summary>Resolves variable bindings (e.g. bound paint colors) against this document's variables.</summary>
+    public VariableResolver Variables => _variables.Value;
 
     public static FigmaDocument Build(FigFile file)
     {
