@@ -39,6 +39,12 @@ public sealed class ResolvedNode
     /// <summary>For INSTANCE nodes that are instance-swapped, the name of the swapped component.</summary>
     public string? SwapComponentName { get; set; }
 
+    /// <summary>
+    /// For INSTANCE nodes swapped to a component missing from the file, the id of that component. The node is
+    /// then expanded with its original component.
+    /// </summary>
+    public string? UnresolvedSwapId { get; set; }
+
     /// <summary>Resolved children.</summary>
     public List<ResolvedNode> Children { get; } = new();
 }

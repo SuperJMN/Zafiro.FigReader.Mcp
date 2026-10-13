@@ -121,6 +121,11 @@ layout Figma derived for the instance (`derivedSymbolData`) and `componentPropAs
 component properties and instance-swaps — e.g. an icon). Nested instances are resolved recursively,
 so an icon inside a tab inside a tab-menu is surfaced as the actual component it renders.
 
+A nested instance renders the component assigned to the instance-swap property it is bound to;
+otherwise the component set by a swap override (`overriddenSymbolID`); otherwise its own component.
+The swapped layer reports `swappedTo`/`swappedToId`. A swap to a component missing from the file
+keeps the original component and reports the missing id as `unresolvedSwap`.
+
 ## Variables
 
 Solid paints bound to a color variable report the variable's value, following alias chains and

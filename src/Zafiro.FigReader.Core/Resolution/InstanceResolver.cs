@@ -12,9 +12,13 @@ namespace Zafiro.FigReader.Core.Resolution;
 ///   typography, ...);</item>
 /// <item><c>derivedSymbolData[]</c>, the layout Figma computed for the instance (resolved size and
 ///   position), with explicit overrides taking precedence;</item>
-/// <item><c>componentPropAssignments[]</c> providing text component-property values
-///   (<c>value.textValue</c>) and instance-swaps (<c>value.guidValue</c>, e.g. an icon).</item>
+/// <item><c>componentPropAssignments[]</c> providing component-property values for the layers bound to
+///   them through <c>componentPropRefs</c>: text (<c>value.textValue</c>) and instance-swaps
+///   (<c>value.guidValue</c>, e.g. an icon).</item>
 /// </list>
+/// A nested instance renders the component assigned to its bound instance-swap property, otherwise the
+/// <c>overriddenSymbolID</c> of the override matching its path, otherwise its own component. A swap to the
+/// component the layer already uses is not a swap.
 /// Nested instances are resolved recursively, with the outer instance's deeper overrides rebased into
 /// the nested symbol's coordinate space. Overrides from an outer instance win over the component's own,
 /// field by field.
@@ -134,7 +138,7 @@ public sealed class InstanceResolver
         if (node.Type == "TEXT")
         {
             resolved.Text = ov?.GetObject("textData")?.GetString("characters")
-                            ?? ResolveTextProperty(node, assignments)
+                            ?? AssignedValue(node, "TEXT_DATA", assignments)?.GetObject("textValue")?.GetString("characters")
                             ?? node.Raw.GetObject("textData")?.GetString("characters");
         }
 
@@ -144,14 +148,30 @@ public sealed class InstanceResolver
                 ParseAssignments(node.Raw.GetList("componentPropAssignments")),
                 ParseAssignments(ov?.GetList("componentPropAssignments")));
 
-            var (swapId, swapName) = DetectSwap(nodeAssignments);
-            resolved.SwapComponentId = swapId;
-            resolved.SwapComponentName = swapName;
+            // The enclosing instance's property assignment wins over a swap override: Figma drives a layer
+            // bound to an instance-swap property through that property.
+            var defaultSymbol = SymbolIdOf(node);
+            var swapGuid = AssignedValue(node, "OVERRIDDEN_SYMBOL_ID", assignments)?.GetObject("guidValue")
+                           ?? ov?.GetObject("overriddenSymbolID");
+            var swapId = swapGuid is null ? null : FigmaDocument.FormatGuid(swapGuid);
+            var effectiveSymbol = defaultSymbol;
+            if (swapId is not null && swapId != defaultSymbol)
+            {
+                if (_doc.FindById(swapId) is { } target)
+                {
+                    resolved.SwapComponentId = swapId;
+                    resolved.SwapComponentName = target.Name;
+                    effectiveSymbol = swapId;
+                }
+                else
+                {
+                    resolved.UnresolvedSwapId = swapId;
+                }
+            }
 
             if (remaining > 0)
             {
                 var nested = Rebase(overrides, node.Id);
-                var effectiveSymbol = swapId ?? SymbolIdOf(node);
                 if (effectiveSymbol is not null && depth <= MaxDepth)
                 {
                     var expanded = ExpandInstance(node, effectiveSymbol, nested, nodeAssignments, visited, depth + 1, remaining);
@@ -242,9 +262,16 @@ public sealed class InstanceResolver
         return map;
     }
 
-    private static string? ResolveTextProperty(FigmaNode textNode, IReadOnlyDictionary<string, KiwiObject> assignments)
+    /// <summary>
+    /// The value the enclosing instance assigns to the component property that <paramref name="node"/>'s
+    /// <paramref name="field"/> is bound to (<c>TEXT_DATA</c>, <c>OVERRIDDEN_SYMBOL_ID</c>, ...), if any.
+    /// </summary>
+    private static KiwiObject? AssignedValue(
+        FigmaNode node,
+        string field,
+        IReadOnlyDictionary<string, KiwiObject> assignments)
     {
-        var refs = textNode.Raw.GetList("componentPropRefs");
+        var refs = node.Raw.GetList("componentPropRefs");
         if (refs is null)
         {
             return null;
@@ -257,7 +284,7 @@ public sealed class InstanceResolver
                 continue;
             }
 
-            if (reference.GetString("componentPropNodeField") != "TEXT_DATA")
+            if (reference.GetString("componentPropNodeField") != field)
             {
                 continue;
             }
@@ -270,32 +297,11 @@ public sealed class InstanceResolver
 
             if (assignments.TryGetValue(FigmaDocument.FormatGuid(defId), out var value))
             {
-                return value.GetObject("textValue")?.GetString("characters");
+                return value;
             }
         }
 
         return null;
-    }
-
-    private (string? Id, string? Name) DetectSwap(IReadOnlyDictionary<string, KiwiObject> assignments)
-    {
-        foreach (var value in assignments.Values)
-        {
-            var guid = value.GetObject("guidValue");
-            if (guid is null)
-            {
-                continue;
-            }
-
-            var id = FigmaDocument.FormatGuid(guid);
-            var target = _doc.FindById(id);
-            if (target is not null)
-            {
-                return (id, target.Name);
-            }
-        }
-
-        return (null, null);
     }
 
     private static Dictionary<string, KiwiObject> Rebase(

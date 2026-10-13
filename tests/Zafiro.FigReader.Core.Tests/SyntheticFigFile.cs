@@ -25,6 +25,7 @@ internal sealed class SyntheticFigFile : IDisposable
         ["GuidPath"] = [("guids", "Guid[]")],
         ["Value"] = [("guidValue", "Guid")],
         ["Assignment"] = [("defID", "Guid"), ("value", "Value")],
+        ["PropRef"] = [("defID", "Guid"), ("componentPropNodeField", "string")],
         ["Vector"] = [("x", "float"), ("y", "float")],
         ["Matrix"] = [("m00", "float"), ("m01", "float"), ("m02", "float"),
             ("m10", "float"), ("m11", "float"), ("m12", "float")],
@@ -40,7 +41,7 @@ internal sealed class SyntheticFigFile : IDisposable
         ["Paint"] = [("type", "string"), ("color", "Color"), ("colorVar", "VariableData"), ("opacity", "float")],
         ["Override"] = [("guidPath", "GuidPath"), ("textData", "Text"), ("visible", "bool"),
             ("componentPropAssignments", "Assignment[]"), ("size", "Vector"), ("transform", "Matrix"),
-            ("fontName", "Font"), ("fontSize", "float"), ("fillPaints", "Paint[]")],
+            ("fontName", "Font"), ("fontSize", "float"), ("fillPaints", "Paint[]"), ("overriddenSymbolID", "Guid")],
         ["SymbolData"] = [("symbolID", "Guid"), ("symbolOverrides", "Override[]")],
         ["Derived"] = [("guidPath", "GuidPath"), ("size", "Vector"), ("transform", "Matrix")],
         ["Geometry"] = [("commandsBlob", "uint"), ("windingRule", "string")],
@@ -49,7 +50,8 @@ internal sealed class SyntheticFigFile : IDisposable
             ("fillGeometry", "Geometry[]"), ("size", "Vector"), ("transform", "Matrix"), ("fontName", "Font"),
             ("fontSize", "float"), ("derivedSymbolData", "Derived[]"), ("key", "string"),
             ("variableSetID", "Reference"), ("variableResolvedType", "string"),
-            ("variableDataValues", "VariableValues"), ("variableSetModes", "Mode[]")],
+            ("variableDataValues", "VariableValues"), ("variableSetModes", "Mode[]"),
+            ("componentPropRefs", "PropRef[]"), ("componentPropAssignments", "Assignment[]")],
         ["Blob"] = [("bytes", "byte[]")],
         ["Message"] = [("nodeChanges", "Node[]"), ("blobs", "Blob[]")]
     };
@@ -93,7 +95,8 @@ internal sealed class SyntheticFigFile : IDisposable
             Node(21, "TEXT", "Label", 20, ("textData", Obj("Text", ("characters", "Base label"))),
                 ("fillPaints", new[] { Obj("Paint", ("type", "SOLID"),
                     ("color", Obj("Color", ("r", 0f), ("g", 1f), ("b", 0f), ("a", 1f)))) })),
-            Node(22, "INSTANCE", "Icon", 20, ("symbolData", Obj("SymbolData", ("symbolID", Id(30))))),
+            Node(22, "INSTANCE", "Icon", 20, ("symbolData", Obj("SymbolData", ("symbolID", Id(30)))),
+                ("componentPropRefs", new[] { SwapRef(60) })),
             Node(30, "SYMBOL", "Circle icon", 2),
             Node(40, "SYMBOL", "Square icon", 2),
             Node(41, "VECTOR", "Curve", 40,
@@ -104,10 +107,7 @@ internal sealed class SyntheticFigFile : IDisposable
                     Override([11, 21], ("textData", Obj("Text", ("characters", "First label")))),
                     Override([12, 21], ("textData", Obj("Text", ("characters", "Second label")))),
                     Override([12], ("visible", false)),
-                    Override([11, 22], ("componentPropAssignments", new[]
-                    {
-                        Obj("Assignment", ("defID", Id(60)), ("value", Obj("Value", ("guidValue", Id(40)))))
-                    }))
+                    Override([11], ("componentPropAssignments", new[] { SwapAssignment(60, 40) }))
                 }))))
         };
 
@@ -142,6 +142,14 @@ internal sealed class SyntheticFigFile : IDisposable
     }
 
     public static KiwiObject Id(int localId) => Obj("Guid", ("sessionID", 1), ("localID", localId));
+
+    /// <summary>Binds an INSTANCE layer to the instance-swap component property <paramref name="definition"/>.</summary>
+    public static KiwiObject SwapRef(int definition) =>
+        Obj("PropRef", ("defID", Id(definition)), ("componentPropNodeField", "OVERRIDDEN_SYMBOL_ID"));
+
+    /// <summary>Assigns <paramref name="component"/> to the instance-swap component property <paramref name="definition"/>.</summary>
+    public static KiwiObject SwapAssignment(int definition, int component) =>
+        Obj("Assignment", ("defID", Id(definition)), ("value", Obj("Value", ("guidValue", Id(component)))));
 
     public static KiwiObject Override(int[] path, params (string Name, object Value)[] values) =>
         Obj("Override", new[] { ("guidPath", (object)Obj("GuidPath", ("guids", path.Select(Id).ToArray()))) }
