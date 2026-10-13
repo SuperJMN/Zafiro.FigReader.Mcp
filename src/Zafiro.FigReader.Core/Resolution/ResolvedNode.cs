@@ -1,3 +1,4 @@
+using Zafiro.FigReader.Core.Kiwi;
 using Zafiro.FigReader.Core.Model;
 
 namespace Zafiro.FigReader.Core.Resolution;
@@ -5,13 +6,20 @@ namespace Zafiro.FigReader.Core.Resolution;
 /// <summary>
 /// A node of an instance's <em>resolved</em> subtree: the symbol content an INSTANCE renders once its
 /// overrides and component-property assignments have been applied. Unlike a raw <see cref="FigmaNode"/>,
-/// it carries the <see cref="Text"/> actually shown, the effective <see cref="Visible"/> flag and, for
-/// nested instances, the swapped component (<see cref="SwapComponentName"/>).
+/// it carries the effective <see cref="Properties"/> (bounds, fills, typography, ...), the <see cref="Text"/>
+/// actually shown, the effective <see cref="Visible"/> flag and, for nested instances, the swapped component
+/// (<see cref="SwapComponentName"/>).
 /// </summary>
 public sealed class ResolvedNode
 {
-    /// <summary>The underlying symbol-space node, used for base properties (bounds, fills, layout, name).</summary>
+    /// <summary>The underlying symbol-space node (identity, name and structure).</summary>
     public required FigmaNode Source { get; init; }
+
+    /// <summary>
+    /// The node's effective fields: <see cref="Source"/>'s raw fields with the instance's derived layout and
+    /// explicit overrides applied. Positional bounds are in the symbol's local space.
+    /// </summary>
+    public required KiwiObject Properties { get; init; }
 
     /// <summary>Node type (FRAME, TEXT, INSTANCE, VECTOR, ...), copied from <see cref="Source"/>.</summary>
     public required string? Type { get; init; }

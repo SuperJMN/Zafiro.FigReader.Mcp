@@ -8,16 +8,24 @@ namespace Zafiro.FigReader.Core.Resolution;
 /// children directly; they reference a SYMBOL and carry a set of overrides. This resolver walks the
 /// referenced symbol's subtree and applies:
 /// <list type="bullet">
-/// <item><c>symbolData.symbolOverrides[]</c> keyed by <c>guidPath</c> (text, visibility, ...);</item>
+/// <item><c>symbolData.symbolOverrides[]</c> keyed by <c>guidPath</c> (text, visibility, size, fills,
+///   typography, ...);</item>
+/// <item><c>derivedSymbolData[]</c>, the layout Figma computed for the instance (resolved size and
+///   position), with explicit overrides taking precedence;</item>
 /// <item><c>componentPropAssignments[]</c> providing text component-property values
 ///   (<c>value.textValue</c>) and instance-swaps (<c>value.guidValue</c>, e.g. an icon).</item>
 /// </list>
 /// Nested instances are resolved recursively, with the outer instance's deeper overrides rebased into
-/// the nested symbol's coordinate space. Overrides from an outer instance win over the component's own.
+/// the nested symbol's coordinate space. Overrides from an outer instance win over the component's own,
+/// field by field.
 /// </summary>
 public sealed class InstanceResolver
 {
     private const int MaxDepth = 40;
+
+    // Fields of derivedSymbolData entries that describe effective layout. Other derived fields (geometry
+    // blobs, text layout) are rendering caches, not node properties.
+    private static readonly string[] DerivedLayoutFields = ["size", "transform"];
 
     private readonly FigmaDocument _doc;
 
@@ -73,6 +81,7 @@ public sealed class InstanceResolver
         var root = new ResolvedNode
         {
             Source = instance,
+            Properties = instance.Raw,
             Type = instance.Type,
             Name = instance.Name,
             Visible = instance.Raw.GetBool("visible") != false,
@@ -87,7 +96,7 @@ public sealed class InstanceResolver
         // The instance's own path-keyed overrides only match its *default* symbol; when swapped
         // (symbolId differs) they no longer apply, so rely on the inherited (outer) overrides only.
         var overrides = symbolId == SymbolIdOf(instance)
-            ? Merge(ParseOverrides(instance), inheritedOverrides)
+            ? MergeOverrides(ParseOverrides(instance), inheritedOverrides)
             : new Dictionary<string, KiwiObject>(inheritedOverrides, StringComparer.Ordinal);
 
         foreach (var child in symbol.Children)
@@ -116,6 +125,7 @@ public sealed class InstanceResolver
         var resolved = new ResolvedNode
         {
             Source = node,
+            Properties = ov is null ? node.Raw : Overlay(node.Raw, ov),
             Type = node.Type,
             Name = node.Name,
             Visible = visible,
@@ -168,14 +178,21 @@ public sealed class InstanceResolver
 
     private static Dictionary<string, KiwiObject> ParseOverrides(FigmaNode instance)
     {
+        var symbolData = instance.Raw.GetObject("symbolData");
+        var derived = ParseByGuidPath(instance.Raw.GetList("derivedSymbolData"), DerivedLayoutFields);
+        var explicitOverrides = ParseByGuidPath(symbolData?.GetList("symbolOverrides"), fields: null);
+        return MergeOverrides(derived, explicitOverrides);
+    }
+
+    private static Dictionary<string, KiwiObject> ParseByGuidPath(IReadOnlyList<object?>? entries, string[]? fields)
+    {
         var map = new Dictionary<string, KiwiObject>(StringComparer.Ordinal);
-        var overrides = instance.Raw.GetObject("symbolData")?.GetList("symbolOverrides");
-        if (overrides is null)
+        if (entries is null)
         {
             return map;
         }
 
-        foreach (var item in overrides)
+        foreach (var item in entries)
         {
             if (item is not KiwiObject entry)
             {
@@ -189,8 +206,9 @@ public sealed class InstanceResolver
             }
 
             var key = string.Join('/', guids.OfType<KiwiObject>().Select(FigmaDocument.FormatGuid));
+            var values = entry.Fields.Where(f => f.Key != "guidPath" && (fields is null || fields.Contains(f.Key)));
             // A guidPath is unique per override; last one wins if duplicated.
-            map[key] = entry;
+            map[key] = new KiwiObject(entry.TypeName, values.ToDictionary(f => f.Key, f => f.Value));
         }
 
         return map;
@@ -308,5 +326,31 @@ public sealed class InstanceResolver
         }
 
         return map;
+    }
+
+    /// <summary>Merges path-keyed overrides field by field; <paramref name="winning"/> fields take precedence.</summary>
+    private static Dictionary<string, KiwiObject> MergeOverrides(
+        IReadOnlyDictionary<string, KiwiObject> own,
+        IReadOnlyDictionary<string, KiwiObject> winning)
+    {
+        var map = new Dictionary<string, KiwiObject>(own, StringComparer.Ordinal);
+        foreach (var (key, value) in winning)
+        {
+            map[key] = map.TryGetValue(key, out var existing) ? Overlay(existing, value) : value;
+        }
+
+        return map;
+    }
+
+    /// <summary>Returns <paramref name="target"/> with every field of <paramref name="overlay"/> replacing its own.</summary>
+    private static KiwiObject Overlay(KiwiObject target, KiwiObject overlay)
+    {
+        var fields = new Dictionary<string, object?>(target.Fields, StringComparer.Ordinal);
+        foreach (var (name, value) in overlay.Fields)
+        {
+            fields[name] = value;
+        }
+
+        return new KiwiObject(target.TypeName, fields);
     }
 }
