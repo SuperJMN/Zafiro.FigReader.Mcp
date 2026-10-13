@@ -120,6 +120,11 @@ public static class FigmaExtractor
             json["swappedToId"] = node.SwapComponentId;
         }
 
+        if (node.UnresolvedSwapId is not null)
+        {
+            json["unresolvedSwap"] = node.UnresolvedSwapId;
+        }
+
         if (node.Children.Count > 0)
         {
             if (depth <= 0)

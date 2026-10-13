@@ -205,6 +205,11 @@ public sealed class FigmaService
             json["swappedTo"] = node.SwapComponentName;
         }
 
+        if (node.UnresolvedSwapId is not null)
+        {
+            json["unresolvedSwap"] = node.UnresolvedSwapId;
+        }
+
         if (node.Children.Count > 0)
         {
             json["childCount"] = node.Children.Count;
