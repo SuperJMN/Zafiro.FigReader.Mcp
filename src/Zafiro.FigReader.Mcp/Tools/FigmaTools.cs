@@ -43,8 +43,8 @@ public static class FigmaTools
                  "fills, strokes, auto-layout and text). Omit nodeId to start from the document pages. " +
                  "Use 'depth' to control recursion; deeper subtrees report only a childCount. INSTANCE " +
                  "nodes are expanded to the symbol content they render, with overrides applied: effective " +
-                 "text, per-node visibility and icon instance-swaps ('swappedTo'). Colors bound to " +
-                 "variables report the variable's value.")]
+                 "text, bounds, fills and typography, per-node visibility and icon instance-swaps ('swappedTo'). " +
+                 "Colors bound to variables report the variable's value.")]
     public static string GetNodeTree(
         FigmaService service,
         [Description("Optional node id ('sessionID:localID') to use as the subtree root.")] string? nodeId = null,

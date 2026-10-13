@@ -380,7 +380,7 @@ public sealed class FigmaService
             if (matchesName || matchedText is not null)
             {
                 var json = new JsonObject { ["id"] = node.Id, ["name"] = node.Name, ["type"] = node.Type };
-                FigmaExtractor.AddBounds(json, node);
+                FigmaExtractor.AddBounds(json, node.Raw);
                 AddContext(json, node);
                 if (matchedText is not null)
                 {

@@ -27,53 +27,12 @@ public static class FigmaExtractor
             ["type"] = node.Type,
         };
 
-        AddBounds(json, node);
-
         if (node.Raw.GetBool("visible") == false)
         {
             json["visible"] = false;
         }
 
-        var opacity = node.Raw.GetNumber("opacity");
-        if (opacity is not null && opacity < 1)
-        {
-            json["opacity"] = Round(opacity.Value);
-        }
-
-        var cornerRadius = node.Raw.GetNumber("cornerRadius");
-        if (cornerRadius is > 0)
-        {
-            json["cornerRadius"] = Round(cornerRadius.Value);
-        }
-
-        var fills = SimplifyPaints(node.Raw.GetList("fillPaints"), variables);
-        if (fills is not null)
-        {
-            json["fills"] = fills;
-        }
-
-        var strokes = SimplifyPaints(node.Raw.GetList("strokePaints"), variables);
-        if (strokes is not null)
-        {
-            json["strokes"] = strokes;
-            var sw = node.Raw.GetNumber("strokeWeight");
-            if (sw is not null)
-            {
-                json["strokeWeight"] = Round(sw.Value);
-            }
-        }
-
-        var layout = SimplifyLayout(node);
-        if (layout is not null)
-        {
-            json["layout"] = layout;
-        }
-
-        var text = SimplifyText(node, variables);
-        if (text is not null)
-        {
-            json["text"] = text;
-        }
+        AddProperties(json, node.Type, node.Raw, variables);
 
         if (includeChildren)
         {
@@ -129,9 +88,10 @@ public static class FigmaExtractor
     }
 
     /// <summary>
-    /// Renders a node of an instance's <em>resolved</em> subtree: the effective text/visibility and, for
-    /// swapped instances, the component that was swapped in. Positional bounds are in the symbol's local
-    /// space. <paramref name="depth"/> bounds recursion just like <see cref="Simplify"/>.
+    /// Renders a node of an instance's <em>resolved</em> subtree: its effective properties (bounds, fills,
+    /// typography, ... after overrides), text and visibility and, for swapped instances, the component that
+    /// was swapped in. Positional bounds are in the symbol's local space. <paramref name="depth"/> bounds
+    /// recursion just like <see cref="Simplify"/>.
     /// </summary>
     public static JsonObject SimplifyResolved(ResolvedNode node, int depth, VariableResolver variables)
     {
@@ -142,34 +102,16 @@ public static class FigmaExtractor
             ["type"] = node.Type,
         };
 
-        AddBounds(json, node.Source);
-
         if (!node.Visible)
         {
             json["visible"] = false;
         }
 
-        var fills = SimplifyPaints(node.Source.Raw.GetList("fillPaints"), variables);
-        if (fills is not null)
-        {
-            json["fills"] = fills;
-        }
+        AddProperties(json, node.Type, node.Properties, variables);
 
-        var layout = SimplifyLayout(node.Source);
-        if (layout is not null)
+        if (node.Type == "TEXT" && node.Text is not null && json["text"] is JsonObject text)
         {
-            json["layout"] = layout;
-        }
-
-        if (node.Type == "TEXT")
-        {
-            var text = SimplifyText(node.Source, variables) ?? new JsonObject();
-            if (node.Text is not null)
-            {
-                text["characters"] = node.Text;
-            }
-
-            json["text"] = text;
+            text["characters"] = node.Text;
         }
 
         if (node.SwapComponentName is not null)
@@ -199,10 +141,56 @@ public static class FigmaExtractor
         return json;
     }
 
-    public static void AddBounds(JsonObject json, FigmaNode node)
+    private static void AddProperties(JsonObject json, string? type, KiwiObject properties, VariableResolver variables)
     {
-        var size = node.Raw.GetObject("size");
-        var transform = node.Raw.GetObject("transform");
+        AddBounds(json, properties);
+
+        var opacity = properties.GetNumber("opacity");
+        if (opacity is not null && opacity < 1)
+        {
+            json["opacity"] = Round(opacity.Value);
+        }
+
+        var cornerRadius = properties.GetNumber("cornerRadius");
+        if (cornerRadius is > 0)
+        {
+            json["cornerRadius"] = Round(cornerRadius.Value);
+        }
+
+        var fills = SimplifyPaints(properties.GetList("fillPaints"), variables);
+        if (fills is not null)
+        {
+            json["fills"] = fills;
+        }
+
+        var strokes = SimplifyPaints(properties.GetList("strokePaints"), variables);
+        if (strokes is not null)
+        {
+            json["strokes"] = strokes;
+            var sw = properties.GetNumber("strokeWeight");
+            if (sw is not null)
+            {
+                json["strokeWeight"] = Round(sw.Value);
+            }
+        }
+
+        var layout = SimplifyLayout(properties);
+        if (layout is not null)
+        {
+            json["layout"] = layout;
+        }
+
+        var text = SimplifyText(type, properties, variables);
+        if (text is not null)
+        {
+            json["text"] = text;
+        }
+    }
+
+    public static void AddBounds(JsonObject json, KiwiObject properties)
+    {
+        var size = properties.GetObject("size");
+        var transform = properties.GetObject("transform");
         if (size is not null)
         {
             json["width"] = Round(size.GetNumber("x") ?? 0);
@@ -259,9 +247,9 @@ public static class FigmaExtractor
         return array.Count > 0 ? array : null;
     }
 
-    private static JsonObject? SimplifyLayout(FigmaNode node)
+    private static JsonObject? SimplifyLayout(KiwiObject properties)
     {
-        var mode = node.Raw.GetString("stackMode");
+        var mode = properties.GetString("stackMode");
         if (mode is null or "NONE")
         {
             return null;
@@ -269,55 +257,58 @@ public static class FigmaExtractor
 
         var layout = new JsonObject { ["mode"] = mode };
 
-        var gap = node.Raw.GetNumber("stackSpacing");
+        var gap = properties.GetNumber("stackSpacing");
         if (gap is not null)
         {
             layout["gap"] = Round(gap.Value);
         }
 
-        var top = node.Raw.GetNumber("stackVerticalPadding") ?? 0;
-        var right = node.Raw.GetNumber("stackPaddingRight") ?? 0;
-        var bottom = node.Raw.GetNumber("stackPaddingBottom") ?? 0;
-        var left = node.Raw.GetNumber("stackHorizontalPadding") ?? 0;
+        var top = properties.GetNumber("stackVerticalPadding") ?? 0;
+        var right = properties.GetNumber("stackPaddingRight") ?? 0;
+        var bottom = properties.GetNumber("stackPaddingBottom") ?? 0;
+        var left = properties.GetNumber("stackHorizontalPadding") ?? 0;
         if (top != 0 || right != 0 || bottom != 0 || left != 0)
         {
             layout["padding"] = new JsonArray { Round(top), Round(right), Round(bottom), Round(left) };
         }
 
-        AddString(layout, "primaryAlign", node.Raw.GetString("stackPrimaryAlignItems"));
-        AddString(layout, "counterAlign", node.Raw.GetString("stackCounterAlignItems"));
-        AddString(layout, "primarySizing", node.Raw.GetString("stackPrimarySizing"));
-        AddString(layout, "counterSizing", node.Raw.GetString("stackCounterSizing"));
+        AddString(layout, "primaryAlign", properties.GetString("stackPrimaryAlignItems"));
+        AddString(layout, "counterAlign", properties.GetString("stackCounterAlignItems"));
+        AddString(layout, "primarySizing", properties.GetString("stackPrimarySizing"));
+        AddString(layout, "counterSizing", properties.GetString("stackCounterSizing"));
 
         return layout;
     }
 
-    public static JsonObject? SimplifyText(FigmaNode node, VariableResolver variables)
+    public static JsonObject? SimplifyText(FigmaNode node, VariableResolver variables) =>
+        SimplifyText(node.Type, node.Raw, variables);
+
+    private static JsonObject? SimplifyText(string? type, KiwiObject properties, VariableResolver variables)
     {
-        if (node.Type != "TEXT")
+        if (type != "TEXT")
         {
             return null;
         }
 
         var text = new JsonObject
         {
-            ["characters"] = node.Raw.GetObject("textData")?.GetString("characters"),
+            ["characters"] = properties.GetObject("textData")?.GetString("characters"),
         };
 
-        var font = node.Raw.GetObject("fontName");
+        var font = properties.GetObject("fontName");
         if (font is not null)
         {
             AddString(text, "fontFamily", font.GetString("family"));
             AddString(text, "fontStyle", font.GetString("style"));
         }
 
-        var fontSize = node.Raw.GetNumber("fontSize");
+        var fontSize = properties.GetNumber("fontSize");
         if (fontSize is not null)
         {
             text["fontSize"] = Round(fontSize.Value);
         }
 
-        var lineHeight = node.Raw.GetObject("lineHeight");
+        var lineHeight = properties.GetObject("lineHeight");
         if (lineHeight is not null)
         {
             var value = lineHeight.GetNumber("value");
@@ -333,15 +324,15 @@ public static class FigmaExtractor
             }
         }
 
-        var letterSpacing = node.Raw.GetObject("letterSpacing")?.GetNumber("value");
+        var letterSpacing = properties.GetObject("letterSpacing")?.GetNumber("value");
         if (letterSpacing is not null && letterSpacing != 0)
         {
             text["letterSpacing"] = Round(letterSpacing.Value);
         }
 
-        AddString(text, "align", node.Raw.GetString("textAlignHorizontal"));
+        AddString(text, "align", properties.GetString("textAlignHorizontal"));
 
-        var colors = SimplifyPaints(node.Raw.GetList("fillPaints"), variables);
+        var colors = SimplifyPaints(properties.GetList("fillPaints"), variables);
         if (colors is { Count: > 0 })
         {
             text["color"] = colors[0]!.DeepClone();

@@ -116,7 +116,8 @@ recently loaded file when `path` is omitted.
 
 Figma stores an INSTANCE as a reference to a SYMBOL plus a set of overrides, so instances carry no
 child nodes of their own. `get_node_tree`/`get_node` resolve that for you: they walk the referenced
-symbol and apply `symbolOverrides` (text, visibility, …) and `componentPropAssignments` (text
+symbol and apply `symbolOverrides` (text, visibility, size, position, fills, typography, …), the
+layout Figma derived for the instance (`derivedSymbolData`) and `componentPropAssignments` (text
 component properties and instance-swaps — e.g. an icon). Nested instances are resolved recursively,
 so an icon inside a tab inside a tab-menu is surfaced as the actual component it renders.
 
@@ -157,8 +158,9 @@ tests/Zafiro.FigReader.Core.Tests
 
 - The Kiwi schema is reverse-engineered; if Figma changes the format, extraction may need updates
   (the embedded schema keeps basic decoding working across versions).
-- Instance resolution covers text/visibility overrides and text/instance-swap component properties;
-  exotic property kinds (exposed nested props) are surfaced only partially.
+- Instance resolution covers property overrides, derived layout and text/instance-swap component
+  properties; exotic property kinds (slots, exposed nested props) and named text styles are surfaced
+  only partially.
 - Variables are resolved for paint colors only, in each collection's default mode.
 - Large files take a few seconds to decode on first load (then cached in memory).
 
