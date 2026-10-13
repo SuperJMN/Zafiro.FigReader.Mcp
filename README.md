@@ -103,7 +103,7 @@ dotnet src/Zafiro.FigReader.Mcp/bin/Release/net10.0/Zafiro.FigReader.Mcp.dll
 | `get_node_tree(nodeId?, depth?, path?)` | Compact hierarchy (id, name, type, bounds, fills, strokes, auto-layout, text). INSTANCE nodes are expanded to the symbol content they render, with overrides applied (effective text, per-node visibility, icon instance-swaps as `swappedTo`). |
 | `get_node(nodeId, raw?, path?)` | Full detail for one node. For an INSTANCE, `resolvedChildren` lists the effective labels, icons (`swappedTo`) and visibility. Set `raw=true` for the unfiltered Kiwi object. |
 | `get_text(nodeId?, path?)` | All text content + typography under a subtree. |
-| `get_styles(path?)` | Colors actually used (with counts) and distinct text styles. |
+| `get_styles(path?)` | Colors actually used (with counts, after resolving bound variables) and distinct text styles. |
 | `get_vector(nodeId, geometry?, path?)` | Decode a node's vector geometry into SVG path(s) (with an `F0`/`F1` fill-rule prefix, ready for an SVG `d`/Avalonia `StreamGeometry`). Pass `geometry="strokeGeometry"` for the stroke outline. |
 | `list_images(path?)` | Embedded image/video blob entries. |
 | `export_image(entry, outputDirectory, path?)` | Extract a blob to disk. |
@@ -119,6 +119,14 @@ child nodes of their own. `get_node_tree`/`get_node` resolve that for you: they 
 symbol and apply `symbolOverrides` (text, visibility, …) and `componentPropAssignments` (text
 component properties and instance-swaps — e.g. an icon). Nested instances are resolved recursively,
 so an icon inside a tab inside a tab-menu is surfaced as the actual component it renders.
+
+## Variables
+
+Solid paints bound to a color variable report the variable's value, following alias chains and
+library variables (`assetRef`). Each variable is read in the first mode of its collection; explicit
+mode selection per frame is not modelled. A binding that cannot be resolved is reported as
+`{ "color": "<stored literal>", "unresolvedVariable": "<reference>" }` instead of a plain hex color,
+and `get_styles` counts such usages in `unresolvedVariableUsages`.
 
 ## Example
 
@@ -150,7 +158,8 @@ tests/Zafiro.FigReader.Core.Tests
 - The Kiwi schema is reverse-engineered; if Figma changes the format, extraction may need updates
   (the embedded schema keeps basic decoding working across versions).
 - Instance resolution covers text/visibility overrides and text/instance-swap component properties;
-  exotic property kinds (variables, exposed nested props) are surfaced only partially.
+  exotic property kinds (exposed nested props) are surfaced only partially.
+- Variables are resolved for paint colors only, in each collection's default mode.
 - Large files take a few seconds to decode on first load (then cached in memory).
 
 ## License

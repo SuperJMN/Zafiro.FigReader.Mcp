@@ -127,7 +127,7 @@ public sealed class FigmaService
         {
             var node = doc.FindById(nodeId!)
                 ?? throw new KeyNotFoundException($"Node '{nodeId}' not found.");
-            return FigmaExtractor.Simplify(node, depth, includeChildren: true, resolver);
+            return FigmaExtractor.Simplify(node, depth, doc.Variables, includeChildren: true, resolver);
         }
 
         var roots = doc.Pages.Count > 0
@@ -137,7 +137,7 @@ public sealed class FigmaService
         var array = new JsonArray();
         foreach (var root in roots)
         {
-            array.Add(FigmaExtractor.Simplify(root, depth, includeChildren: true, resolver));
+            array.Add(FigmaExtractor.Simplify(root, depth, doc.Variables, includeChildren: true, resolver));
         }
 
         return array;
@@ -154,7 +154,7 @@ public sealed class FigmaService
                    ?? new JsonObject();
         }
 
-        var json = FigmaExtractor.Simplify(node, depth: 0, includeChildren: false);
+        var json = FigmaExtractor.Simplify(node, depth: 0, doc.Variables, includeChildren: false);
         AddContext(json, node);
         if (node.ParentId is not null)
         {
@@ -269,7 +269,7 @@ public sealed class FigmaService
                 ["characters"] = characters,
             };
 
-            if (FigmaExtractor.SimplifyText(node) is { } style)
+            if (FigmaExtractor.SimplifyText(node, doc.Variables) is { } style)
             {
                 style.Remove("characters");
                 entry["style"] = style;
@@ -283,15 +283,15 @@ public sealed class FigmaService
 
     public JsonObject Styles(FigmaDocument doc)
     {
-        var colorCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var colorCounts = new Dictionary<string, ColorUsage>(StringComparer.Ordinal);
         var textStyles = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
 
         foreach (var node in doc.AllNodes)
         {
-            CountColors(node.Raw.GetList("fillPaints"), colorCounts);
-            CountColors(node.Raw.GetList("strokePaints"), colorCounts);
+            CountColors(node.Raw.GetList("fillPaints"), doc.Variables, colorCounts);
+            CountColors(node.Raw.GetList("strokePaints"), doc.Variables, colorCounts);
 
-            if (node.Type == "TEXT" && FigmaExtractor.SimplifyText(node) is { } text)
+            if (node.Type == "TEXT" && FigmaExtractor.SimplifyText(node, doc.Variables) is { } text)
             {
                 var family = text["fontFamily"]?.GetValue<string>();
                 var fstyle = text["fontStyle"]?.GetValue<string>();
@@ -310,9 +310,16 @@ public sealed class FigmaService
         }
 
         var colors = new JsonArray();
-        foreach (var (hex, count) in colorCounts.OrderByDescending(kv => kv.Value))
+        foreach (var (hex, usage) in colorCounts.OrderByDescending(kv => kv.Value.Usages))
         {
-            colors.Add(new JsonObject { ["color"] = hex, ["usages"] = count });
+            var entry = new JsonObject { ["color"] = hex, ["usages"] = usage.Usages };
+            if (usage.UnresolvedVariableUsages > 0)
+            {
+                // These usages are bound to variables that could not be resolved: the stored literal may be stale.
+                entry["unresolvedVariableUsages"] = usage.UnresolvedVariableUsages;
+            }
+
+            colors.Add(entry);
         }
 
         var styles = new JsonArray();
@@ -487,7 +494,10 @@ public sealed class FigmaService
         return new[] { root }.Concat(root.Descendants());
     }
 
-    private static void CountColors(IReadOnlyList<object?>? paints, Dictionary<string, int> counts)
+    private static void CountColors(
+        IReadOnlyList<object?>? paints,
+        VariableResolver variables,
+        Dictionary<string, ColorUsage> counts)
     {
         if (paints is null)
         {
@@ -499,10 +509,13 @@ public sealed class FigmaService
             if (item is KiwiObject paint &&
                 paint.GetString("type") == "SOLID" &&
                 paint.GetBool("visible") != false &&
-                paint.GetObject("color") is { } color)
+                variables.PaintColor(paint) is { } color)
             {
-                var hex = FigmaExtractor.ColorToHex(color, paint.GetNumber("opacity"));
-                counts[hex] = counts.GetValueOrDefault(hex) + 1;
+                var hex = FigmaExtractor.ColorToHex(color.Color, paint.GetNumber("opacity"));
+                var usage = counts.GetValueOrDefault(hex);
+                counts[hex] = new ColorUsage(
+                    usage.Usages + 1,
+                    usage.UnresolvedVariableUsages + (color.UnresolvedReference is null ? 0 : 1));
             }
         }
     }
@@ -532,6 +545,8 @@ public sealed class FigmaService
         path.StartsWith("~/", StringComparison.Ordinal)
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), path[2..])
             : path;
+
+    private readonly record struct ColorUsage(int Usages, int UnresolvedVariableUsages);
 
     private sealed record CachedDocument(FigmaDocument Document, FileStamp Stamp);
 

@@ -13,7 +13,12 @@ namespace Zafiro.FigReader.Core.Extraction;
 public static class FigmaExtractor
 {
     /// <summary>Builds a simplified node, optionally recursing into children down to <paramref name="depth"/>.</summary>
-    public static JsonObject Simplify(FigmaNode node, int depth, bool includeChildren = true, InstanceResolver? resolver = null)
+    public static JsonObject Simplify(
+        FigmaNode node,
+        int depth,
+        VariableResolver variables,
+        bool includeChildren = true,
+        InstanceResolver? resolver = null)
     {
         var json = new JsonObject
         {
@@ -41,13 +46,13 @@ public static class FigmaExtractor
             json["cornerRadius"] = Round(cornerRadius.Value);
         }
 
-        var fills = SimplifyPaints(node.Raw.GetList("fillPaints"));
+        var fills = SimplifyPaints(node.Raw.GetList("fillPaints"), variables);
         if (fills is not null)
         {
             json["fills"] = fills;
         }
 
-        var strokes = SimplifyPaints(node.Raw.GetList("strokePaints"));
+        var strokes = SimplifyPaints(node.Raw.GetList("strokePaints"), variables);
         if (strokes is not null)
         {
             json["strokes"] = strokes;
@@ -64,7 +69,7 @@ public static class FigmaExtractor
             json["layout"] = layout;
         }
 
-        var text = SimplifyText(node);
+        var text = SimplifyText(node, variables);
         if (text is not null)
         {
             json["text"] = text;
@@ -93,7 +98,7 @@ public static class FigmaExtractor
                     var resolvedChildren = new JsonArray();
                     foreach (var child in resolvedRoot.Children)
                     {
-                        resolvedChildren.Add(SimplifyResolved(child, depth - 1));
+                        resolvedChildren.Add(SimplifyResolved(child, depth - 1, variables));
                     }
 
                     json["children"] = resolvedChildren;
@@ -112,7 +117,7 @@ public static class FigmaExtractor
                     var children = new JsonArray();
                     foreach (var child in node.Children)
                     {
-                        children.Add(Simplify(child, depth - 1, includeChildren, resolver));
+                        children.Add(Simplify(child, depth - 1, variables, includeChildren, resolver));
                     }
 
                     json["children"] = children;
@@ -128,7 +133,7 @@ public static class FigmaExtractor
     /// swapped instances, the component that was swapped in. Positional bounds are in the symbol's local
     /// space. <paramref name="depth"/> bounds recursion just like <see cref="Simplify"/>.
     /// </summary>
-    public static JsonObject SimplifyResolved(ResolvedNode node, int depth)
+    public static JsonObject SimplifyResolved(ResolvedNode node, int depth, VariableResolver variables)
     {
         var json = new JsonObject
         {
@@ -144,7 +149,7 @@ public static class FigmaExtractor
             json["visible"] = false;
         }
 
-        var fills = SimplifyPaints(node.Source.Raw.GetList("fillPaints"));
+        var fills = SimplifyPaints(node.Source.Raw.GetList("fillPaints"), variables);
         if (fills is not null)
         {
             json["fills"] = fills;
@@ -158,7 +163,7 @@ public static class FigmaExtractor
 
         if (node.Type == "TEXT")
         {
-            var text = SimplifyText(node.Source) ?? new JsonObject();
+            var text = SimplifyText(node.Source, variables) ?? new JsonObject();
             if (node.Text is not null)
             {
                 text["characters"] = node.Text;
@@ -184,7 +189,7 @@ public static class FigmaExtractor
                 var children = new JsonArray();
                 foreach (var child in node.Children)
                 {
-                    children.Add(SimplifyResolved(child, depth - 1));
+                    children.Add(SimplifyResolved(child, depth - 1, variables));
                 }
 
                 json["children"] = children;
@@ -211,7 +216,13 @@ public static class FigmaExtractor
         }
     }
 
-    public static JsonArray? SimplifyPaints(IReadOnlyList<object?>? paints)
+    /// <summary>
+    /// Simplifies a paint list. Solid paints become hex colors, using their bound variable's value when they
+    /// are bound to one. A binding that cannot be resolved yields
+    /// <c>{ "color": &lt;stored literal&gt;, "unresolvedVariable": &lt;reference&gt; }</c> so the literal is not
+    /// mistaken for the authoritative color. Other paints are reported by type.
+    /// </summary>
+    public static JsonArray? SimplifyPaints(IReadOnlyList<object?>? paints, VariableResolver variables)
     {
         if (paints is null || paints.Count == 0)
         {
@@ -232,10 +243,12 @@ public static class FigmaExtractor
             }
 
             var type = paint.GetString("type");
-            if (type == "SOLID" && paint.GetObject("color") is { } color)
+            if (type == "SOLID" && variables.PaintColor(paint) is { } color)
             {
-                var opacity = paint.GetNumber("opacity");
-                array.Add(ColorToHex(color, opacity));
+                var hex = ColorToHex(color.Color, paint.GetNumber("opacity"));
+                array.Add(color.UnresolvedReference is null
+                    ? JsonValue.Create(hex)
+                    : new JsonObject { ["color"] = hex, ["unresolvedVariable"] = color.UnresolvedReference });
             }
             else
             {
@@ -279,7 +292,7 @@ public static class FigmaExtractor
         return layout;
     }
 
-    public static JsonObject? SimplifyText(FigmaNode node)
+    public static JsonObject? SimplifyText(FigmaNode node, VariableResolver variables)
     {
         if (node.Type != "TEXT")
         {
@@ -328,8 +341,7 @@ public static class FigmaExtractor
 
         AddString(text, "align", node.Raw.GetString("textAlignHorizontal"));
 
-        var color = node.Raw.GetList("fillPaints");
-        var colors = SimplifyPaints(color);
+        var colors = SimplifyPaints(node.Raw.GetList("fillPaints"), variables);
         if (colors is { Count: > 0 })
         {
             text["color"] = colors[0]!.DeepClone();
